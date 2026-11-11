@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>טריטוריה/יות</title>
+<!-- Local copies so the deck works offline in class: three.js r160 and Heebo (hebrew + latin) -->
+<link rel="stylesheet" href="vendor/fonts/heebo.css">
+<link rel="stylesheet" href="vendor/fonts/abril.css">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+<style>
+:root{--board:#eef0f3;--ink:#000;--muted:#6b7080}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--board);color:var(--ink);font-family:'Heebo',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+.slide{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .5s ease,visibility 0s linear .5s}
+.slide.on{opacity:1;visibility:visible;transition:opacity .5s ease}
+.slide:not(.on){pointer-events:none}   /* a slide that is fading out never catches clicks */
+
+/* 1 · title */
+.title{display:flex;flex-direction:column;align-items:center;text-align:center}
+.title img{width:clamp(56px,6vw,96px);height:auto;margin-bottom:clamp(20px,2.4vw,36px)}
+.title .name{font-weight:500;font-size:clamp(18px,1.7vw,28px);letter-spacing:.01em;line-height:1.2}
+.title .terr{font-weight:300;font-size:clamp(16px,1.45vw,24px);margin-top:.3em;line-height:1.2}
+
+/* 2 · board snapshot */
+.snap{display:block;width:100%;height:100%;cursor:pointer}
+.snap img{width:100%;height:100%;object-fit:contain;display:block}
+.snap.nolink{cursor:default}
+
+/* 3 · coin toss */
+#coin3d{position:absolute;inset:0;width:100%;height:100%;display:block}
+.topics{position:absolute;left:50%;top:76%;transform:translate(-50%,-50%);display:flex;gap:clamp(40px,7vw,140px);white-space:nowrap;z-index:2}
+.topics span{font-weight:500;font-size:clamp(18px,1.9vw,32px);transition:opacity .45s ease;cursor:pointer}
+body.two [data-terr="nonverbal"]{display:none}
+#modeToggle{position:absolute;top:0;right:0;width:80px;height:80px;z-index:3}
+#endZone{position:absolute;left:50%;top:88%;width:180px;height:90px;transform:translate(-50%,-50%);z-index:3}
+
+/* closing slide */
+.endcols{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);   /* centred on the page */
+  display:flex;align-items:flex-end;gap:clamp(28px,3.4vw,64px)}
+.endcol{display:flex;flex-direction:column;align-items:center;cursor:pointer}
+.endcol span{font-weight:500;font-size:clamp(18px,1.9vw,32px);margin-top:clamp(14px,2.2vh,26px);line-height:1;white-space:nowrap}
+.thumb{width:clamp(200px,24vw,420px);aspect-ratio:16/10;position:relative;transition:transform .2s ease}   /* no frame: the cards float on the page */
+.endcol:hover .thumb{transform:translateY(-4px)}
+.thumb .lstage{pointer-events:none}
+
+/* territory slides */
+.terr-slide h1,.ltitle{font-weight:500;font-size:clamp(24px,2.6vw,44px);margin:0}
+
+/* territory · layers – one page laid out like the Miro cluster */
+.ltitle{position:absolute;top:7vh;left:0;right:0;text-align:center;white-space:nowrap;font-size:clamp(14px,1.56vw,26px)!important}
+.lstage{position:absolute;left:0;top:0;width:1392px;height:820px;transform-origin:0 0}
+.lstage .badge{position:absolute}
+.lstage>*{position:absolute;display:block}
+.lstage .shadow,.lcard,.pdf,.prints,.vcard,.rl-tile{box-shadow:0 1px 2px rgba(0,0,0,.07),0 8px 22px rgba(0,0,0,.09)}
+.lcard{left:177px;top:70px;width:297px;height:448px;background:#fff;border-radius:12px;padding:9px;color:inherit;text-decoration:none;font-family:'Heebo',sans-serif}
+.lc-img{width:279px;height:212px;object-fit:cover;display:block;cursor:zoom-in}
+.lc-src{display:flex;align-items:center;gap:9px;margin:24px 17px 0;font-size:13px;color:#5d5f7a;white-space:nowrap}
+.lc-src img{width:22px;height:22px;border-radius:5px}
+.lc-title{margin:24px 17px 0;font-weight:700;font-size:20px;line-height:1.2;color:#000}
+.lc-desc{margin:12px 17px 0;font-size:15px;line-height:1.45;color:#5d5f7a}
+.badge{width:62px;height:62px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.08);display:flex!important;align-items:center;justify-content:center;z-index:3}
+.b-radio{left:161px;top:54px}
+.b-radio img{width:30px;height:30px;border-radius:6px}
+.b-yt{left:459px;top:454px;pointer-events:none}
+.b-yt svg{width:32px;height:23px}
+.rl-tile{left:50px;top:166px;width:228px;height:114px;z-index:2}
+.rl-tile img{width:100%;height:100%;display:block}
+.pdf img{width:100%;height:100%;display:block}
+.p1{left:488px;top:70px;width:254px;height:360px}
+.p2{left:766px;top:70px;width:279px;height:361px}
+.prints{left:893px;top:353px;width:418px;height:294px;object-fit:cover;cursor:zoom-in;z-index:2}
+.vcard{left:476px;top:441px;width:417px;height:311px;background:#fff;border-radius:12px;padding:10px;cursor:pointer}
+.vcard>img{width:100%;height:100%;object-fit:cover;border-radius:9px;display:block}
+.vcard .yt{position:absolute;left:50%;top:50%;width:66px;height:46px;margin:-23px 0 0 -33px;transition:transform .2s}
+.vcard:hover .yt{transform:scale(1.08)}
+.lcard,.pdf,.prints,.vcard,.rl-tile{transition:transform .2s ease}
+.pdf:hover,.rl-tile:hover{transform:translateY(-3px)}
+.lzoom{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .35s ease,visibility 0s linear .35s}
+.lzoom.on{opacity:1;visibility:visible;transition:opacity .35s ease}
+.lzoom.img{background:var(--board);cursor:zoom-out}
+.lzoom.img img{max-width:100%;max-height:100%;display:block}
+.lzoom.vid{background:rgba(238,240,243,.88);cursor:zoom-out}
+.lzoom.vid .frame{width:min(78vw,calc(80vh*16/9));aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.2);cursor:default}
+.lzoom.vid iframe{width:100%;height:100%;border:0;display:block}
+.lzoom img,.lzoom .frame{transform:scale(.7);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.lzoom.on img,.lzoom.on .frame{transform:none}
+
+.topics.picked span{opacity:.28}
+.topics.picked span.hit{opacity:1}
+
+/* territory · jam – laid out like the Miro cluster */
+.jstage{width:1346px;height:1130px}
+.licard,.mitcard{background:#fff;border-radius:10px;padding:8px;box-shadow:0 1px 2px rgba(0,0,0,.07),0 8px 22px rgba(0,0,0,.09)}
+.licard{left:163px;top:190px;width:292px;height:425px}
+.li-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;width:276px;height:206px;margin:-6px 0 0;background:#0a85c9;color:#fff;text-decoration:none;font-family:'Heebo',sans-serif}
+.li-logo{width:46px;height:46px;border:3px solid #fff;border-radius:6px;display:flex;align-items:center;justify-content:center;font:700 34px/1 Arial,sans-serif;letter-spacing:-1px;margin-bottom:12px}
+.li-posted{font-size:16px;opacity:.8}
+.li-text,.mit-text{display:block;color:inherit;text-decoration:none;font-family:'Heebo',sans-serif;padding:0 18px}
+.c-src{display:flex;align-items:center;gap:8px;margin-top:25px;font-size:11.5px;color:#5d5f7a}
+.c-src img{width:20px;height:20px}
+.li-mini{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:3px;background:#0a66c2;color:#fff;font:700 13px/1 Arial,sans-serif}
+.li-mini.big{width:30px;height:30px;font-size:20px;border-radius:5px}
+.c-title{margin-top:24px;font-weight:700;font-size:18px;line-height:1.4;color:#000}
+.c-desc{margin-top:10px;font-size:13px;line-height:1.45;color:#5d5f7a}
+.b-li{left:147px;top:168px}
+.automatar{left:342px;top:90px;width:275px;height:287px;object-fit:cover;object-position:50% 30%;cursor:zoom-in;z-index:2;box-shadow:0 1px 2px rgba(0,0,0,.07),0 8px 22px rgba(0,0,0,.09)}
+.sticky{background:#fff6a8;display:flex!important;align-items:center;justify-content:center;font-family:'Heebo',sans-serif;color:#1c1d22;box-shadow:0 6px 10px -6px rgba(0,0,0,.3)}
+.s-co{left:619px;top:223px;width:169px;height:93px;font-size:27px}
+.s-play{left:671px;top:735px;width:254px;height:138px;font-size:34px}
+.s-jam{left:716px;top:868px;width:169px;height:89px;font-size:31px;z-index:2}
+.lk-big{left:617px;top:358px;width:489px;height:354px;object-fit:cover;box-shadow:0 1px 2px rgba(0,0,0,.07),0 8px 22px rgba(0,0,0,.09)}
+.doodle{left:77px;top:615px;width:571px;height:443px;z-index:3;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.07),0 8px 22px rgba(0,0,0,.09);background:#2a85d6}
+.doodle video{width:100%;height:100%;object-fit:cover;object-position:0 50%;display:block}
+.mitcard{left:948px;top:603px;width:293px;height:442px;padding:9px;z-index:3}
+.mit-img{width:275px;height:206px;display:block;object-fit:cover;cursor:zoom-in}
+.b-mit{left:932px;top:586px;z-index:4!important}
+.b-mit img{width:34px;height:34px}
+
+/* territory · nonverbal – laid out like the Miro cluster */
+.nvstage{width:1834px;height:1040px}
+.nv-chat{left:105px;top:405px;width:753px;height:430px;object-fit:cover;cursor:zoom-in;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.07),0 8px 22px rgba(0,0,0,.09)}
+.s-nowords{left:1346px;top:301px;width:235px;height:129px;font-size:42px}
+.pcard{left:908px;top:301px;width:408px;height:616px;background:#fff;border-radius:12px;padding:12px;color:inherit;text-decoration:none;font-family:'Heebo',sans-serif;box-shadow:0 1px 2px rgba(0,0,0,.07),0 8px 22px rgba(0,0,0,.09)}
+.p-img{width:384px;height:288px;object-fit:cover;display:block}
+.pcard .c-src{margin:34px 24px 0;font-size:16px;gap:10px}
+.pcard .c-src img{width:30px;height:30px}
+.pcard .c-title{margin:30px 24px 0;font-size:27px;line-height:1.2}
+.pcard .c-desc{margin:14px 24px 0;font-size:18px;line-height:1.42}
+.b-p{left:892px;top:286px}
+.b-p img{width:34px;height:34px}
+.smile{left:1250px;top:628px;width:510px;white-space:nowrap;text-align:center;font-family:'Abril Fatface',Georgia,serif;font-size:112px;line-height:1.05;color:#1c1d22}
+
+/* tiny listening dot (voice trigger) */
+#mic{position:absolute;bottom:18px;right:20px;width:7px;height:7px;border-radius:50%;background:#c9ced6;transition:background .3s}
+#mic.on{background:#e0573c}
+#mic.err{background:transparent;border:1px solid #c9ced6}
+
+/* slide counter */
+#count{position:fixed;bottom:14px;left:18px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;opacity:.6;direction:ltr}
+</style>
+</head>
+<body>
+
+<section class="slide" data-n="1">
+  <div class="title">
+    <img src="img/sulamstar.svg" alt="">
+    <div class="name">לוקה אור</div>
+    <div class="terr">טריטוריה/יות</div>
+  </div>
+</section>
+
+<section class="slide" data-n="2">
+  <!-- BOARD-LINK: lecturers version (no link). make_class.py turns this block into the linked one for class.html -->
+  <div class="snap nolink">
+    <img src="img/miro3d.jpg" alt="הלוח בתלת־ממד: טריטוריות על צירי דיגיטלי–פיזי, מחקרי–יישומי ומשחקי">
+  </div>
+  <!-- /BOARD-LINK -->
+</section>
+
+<section class="slide" data-n="3" id="coinSlide">
+  <canvas id="coin3d"></canvas>
+  <div class="topics" id="topics">
+    <span data-terr="layers">שכבות</span>
+    <span data-terr="nonverbal">תקשורת לא מילולית</span>
+    <span data-terr="jam" dir="ltr">AI (co) Jam</span>
+  </div>
+  <i id="mic" class="off"></i>
+  <!-- invisible toggle: 3 territories ↔ 2 (without תקשורת לא מילולית) -->
+  <div id="modeToggle" aria-hidden="true"></div>
+  <!-- invisible end-zone: below the titles, halfway to the bottom → the closing slide -->
+  <div id="endZone" aria-hidden="true"></div>
+</section>
+
+<!-- territories (no fixed order: each returns to the hub) -->
+<!-- nonverbal · laid out like the Miro cluster (design canvas 1834×1040, scaled to fit) -->
+<section class="slide terr-slide" data-terr="nonverbal" id="nvSlide">
+  <h1 class="ltitle">תקשורת לא מילולית</h1>
+  <div class="lstage nvstage">
+    <img class="nv-chat zoomable" src="img/nonverbal-chat.jpg" alt="סיעור מוחות עם מצלמה – צ׳אט שקורא הבעות פנים">
+    <div class="sticky s-nowords">ללא מילים</div>
+    <a class="pcard" href="https://www.pentagram.com/work/face-the-music" target="_blank" rel="noopener" dir="ltr">
+      <img class="p-img" src="img/facemusic.jpg" alt="Face the Music – Pentagram">
+      <div class="c-src"><img src="img/pentagram-logo.png" alt="">Pentagram</div>
+      <div class="c-title">Face the Music</div>
+      <div class="c-desc">Pentagram's interactive 2019 holiday card lets you make music with your face.</div>
+    </a>
+    <a class="badge b-p" href="https://www.pentagram.com/work/face-the-music" target="_blank" rel="noopener"><img src="img/pentagram-logo.png" alt="Pentagram"></a>
+    <div class="smile" dir="ltr">smile text<br>:)</div>
+  </div>
+  <div class="lzoom"></div>
+</section>
+<!-- layers · one page laid out like the Miro cluster (design canvas 1392×820, scaled to fit) -->
+<section class="slide terr-slide layers" data-terr="layers" id="layersSlide">
+  <h1 class="ltitle">שכבות של אינפורמציה</h1>
+  <div class="lstage" id="lstage">
+    <a class="lcard" href="https://radiolab.org/podcast/91908-stayin-alive/transcript" target="_blank" rel="noopener" dir="ltr">
+      <img class="lc-img zoomable" src="img/amphorae.jpg" alt="כדים חרס עתיקים">
+      <div class="lc-src"><img src="img/radiolab_icon.png" alt="">Radiolab Podcasts | WNYC Studios</div>
+      <div class="lc-title">Stayin' Alive</div>
+      <div class="lc-desc">A look at four unconventional ways to stay alive.</div>
+    </a>
+    <a class="badge b-radio" href="https://radiolab.org/podcast/91908-stayin-alive/transcript" target="_blank" rel="noopener"><img src="img/radiolab_icon.png" alt="Radiolab"></a>
+    <a class="rl-tile" href="https://radiolab.org/podcast/91908-stayin-alive/transcript" target="_blank" rel="noopener"><img src="img/radiolab-logo.png" alt="Radiolab"></a>
+    <a class="pdf p1" href="docs/archaeoacoustics-intro.pdf" target="_blank" rel="noopener"><img src="img/pdf-intro-p1.jpg" alt="Archaeoacoustics – pipe dream or possibility?"></a>
+    <a class="pdf p2" href="docs/acoustic-recordings-from-antiquity.pdf" target="_blank" rel="noopener"><img src="img/pdf-recordings-p1.jpg" alt="Acoustic Recordings from Antiquity"></a>
+    <img class="prints zoomable" src="img/soundprint.jpg" alt="Sound Print – הדפסי משי שהם גם רמקולים">
+    <div class="vcard" id="vcard" role="button" tabindex="0" aria-label="ניגון הסרט">
+      <img src="img/soundprint-video.jpg" alt="">
+      <svg class="yt" viewBox="0 0 68 48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.6c-3 .7-4.6 3.2-5.4 6.1C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.6c3-.7 4.6-3.2 5.4-6.1C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="#f00"/><path d="M45 24 27 14v20" fill="#fff"/></svg>
+    </div>
+    <span class="badge b-yt"><svg viewBox="0 0 68 48"><path d="M66.5 7.7c-.8-2.9-2.5-5.4-5.4-6.2C55.8.1 34 0 34 0S12.2.1 6.9 1.6c-3 .7-4.6 3.2-5.4 6.1C.1 13 0 24 0 24s.1 11 1.5 16.3c.8 2.9 2.5 5.4 5.4 6.2C12.2 47.9 34 48 34 48s21.8-.1 27.1-1.6c3-.7 4.6-3.2 5.4-6.1C67.9 35 68 24 68 24s-.1-11-1.5-16.3z" fill="#f00"/><path d="M45 24 27 14v20" fill="#fff"/></svg></span>
+  </div>
+  <!-- zoom layer: a full-page image, or the playing film -->
+  <div class="lzoom" id="lzoom"></div>
+</section>
+
+<!-- jam · laid out like the Miro cluster (design canvas 1346×1130, scaled to fit) -->
+<section class="slide terr-slide jam" data-terr="jam" id="jamSlide">
+  <h1 class="ltitle" dir="ltr">AI(co)Jam / Play</h1>
+  <div class="lstage jstage">
+    <div class="licard">
+      <a class="li-tile" href="https://www.linkedin.com/posts/dazzagreenwood_the-automatar-an-ai-powered-acoustic-guitar-activity-7525796893352943616-DpUS" target="_blank" rel="noopener">
+        <span class="li-logo">in</span><span class="li-posted">Posted on LinkedIn</span>
+      </a>
+      <a class="li-text" href="https://www.media.mit.edu/projects/automatar/overview/" target="_blank" rel="noopener" dir="ltr">
+        <div class="c-src"><span class="li-mini">in</span>LinkedIn</div>
+        <div class="c-title">The Automatar: An AI-Powered Acoustic Guit...</div>
+        <div class="c-desc">Watch: Media Lab graduate researcher Antonis Christou introduces the Automatar. Crafted entirely from scratch, using a combination...</div>
+      </a>
+    </div>
+    <a class="badge b-li" href="https://www.linkedin.com/posts/dazzagreenwood_the-automatar-an-ai-powered-acoustic-guitar-activity-7525796893352943616-DpUS" target="_blank" rel="noopener"><span class="li-mini big">in</span></a>
+    <img class="automatar zoomable" src="img/automatar.jpg" alt="The Automatar – גיטרה אקוסטית עם AI, MIT Media Lab">
+    <div class="sticky s-co" dir="ltr">co-creation</div>
+    <img class="lk-big" src="img/lk-big.jpg" alt="Lifelong Kindergarten">
+    <a class="doodle" href="https://lukori.github.io/emotionizer/" target="_blank" rel="noopener" title="Doodle Animator">
+      <video id="doodleVid" src="img/doodle.mp4" poster="img/doodle-poster.jpg" muted loop playsinline autoplay></video>
+    </a>
+    <div class="sticky s-play" dir="ltr">AI-(co)-PLAY</div>
+    <div class="sticky s-jam" dir="ltr">AI Jam</div>
+    <div class="mitcard">
+      <img class="mit-img zoomable" src="img/lk-podcast.jpg" alt="Lifelong Kindergarten Podcast with Mitch Resnick">
+      <a class="mit-text" href="https://www.media.mit.edu/groups/lifelong-kindergarten/overview/" target="_blank" rel="noopener" dir="ltr">
+        <div class="c-src"><img src="img/mitml-logo-small.png" alt="">MIT Media Lab</div>
+        <div class="c-title">Project Overview ‹ Lifelong Kindergar...</div>
+        <div class="c-desc">Join MIT Professor Mitchel Resnick of the Lifelong Kindergarten research group to explore new technologies, activities, and strategies for help...</div>
+      </a>
+    </div>
+    <span class="badge b-mit"><img src="img/mitml-logo.png" alt="MIT Media Lab"></span>
+  </div>
+  <div class="lzoom"></div>
+</section>
+
+<!-- closing slide: the hub again, with a small live copy of each territory page above its title -->
+<section class="slide" id="endSlide">
+  <div class="endcols">
+    <div class="endcol" data-terr="layers"><div class="thumb"></div><span>שכבות</span></div>
+    <div class="endcol" data-terr="nonverbal"><div class="thumb"></div><span>תקשורת לא מילולית</span></div>
+    <div class="endcol" data-terr="jam"><div class="thumb"></div><span dir="ltr">AI (co) Jam</span></div>
+  </div>
+</section>
+
+<div id="count"></div>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ---------- deck navigation ---------- */
+const slides=[...document.querySelectorAll('.slide')], count=document.getElementById('count');
+const hooks={};            // per-slide {enter(), next()→true if it consumed the step}
+let i=0;
+// in two-territory mode the nonverbal slide is skipped
+const skipped=k=>document.body.classList.contains('two')&&slides[k]?.dataset.terr==='nonverbal';
+const live=()=>slides.filter((_,k)=>!skipped(k));
+function show(n,dir=n>=i?1:-1){
+  const prev=i;
+  n=Math.max(0,Math.min(slides.length-1,n));
+  while(skipped(n)){ const m=n+dir; if(m<0||m>=slides.length){n=prev;break} n=m }
+  i=n;
+  slides.forEach((s,k)=>s.classList.toggle('on',k===i));
+  count.textContent=(live().indexOf(slides[i])+1)+' / '+live().length;
+  history.replaceState(null,'','#'+(i+1));
+  if(prev!==i&&show.started) hooks[prev]?.leave?.();
+  if(prev!==i||!show.started) hooks[i]?.enter?.();
+  show.started=true;
+}
+// territories have no fixed order: leaving any territory page (forward or back) returns to the hub (the coin page,
+// in the current 2/3 mode, without the coin); from the hub a title – or the landed coin – leads into a territory
+const hubIdx=()=>slides.indexOf(document.getElementById('coinSlide'));
+const inTerritory=()=>!!slides[i].dataset.terr;
+const next=()=>{ if(hooks[i]?.next?.()) return; if(inTerritory()){show(hubIdx());return} show(i+1) };
+const prev=()=>{ if(inTerritory()||slides[i].id==='endSlide'){show(hubIdx());return} show(i-1) };
+addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(e.key===' '&&e.shiftKey){e.preventDefault();prev();return}
+  if([' ','ArrowRight','ArrowDown','PageDown','Enter'].includes(e.key)){e.preventDefault();next()}
+  else if(['ArrowLeft','ArrowUp','PageUp','Backspace'].includes(e.key)){e.preventDefault();prev()}
+  else if(e.key==='Home')show(0);
+  else if(e.key==='End')show(slides.length-1);
+  else if(e.key==='f'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+});
+
+/* ---------- coin ---------- */
+const ALL_TOPICS=[
+  {key:'nonverbal',lines:['תקשורת','לא מילולית']},
+  {key:'layers',lines:['שכבות']},
+  {key:'jam',lines:['AI (co)','Jam']},
+];
+const twoMode=()=>document.body.classList.contains('two');
+const topics=()=>twoMode()?ALL_TOPICS.filter(t=>t.key!=='nonverbal'):ALL_TOPICS;
+const GOLD='#e8d9a8', GOLD_SIDE='#cdbd8c', INK='#111';   // pale greyish gold, chosen from a test palette
+const ELEV=58*Math.PI/180;      // camera elevation above the table
+const CENTER_Y=.44;              // coin centre, as a fraction of the page height from the top
+const THICK=.085;                // coin thickness / radius
+const OUTLINE_PX=3.2;
+
+const slide=document.getElementById('coinSlide'), canvas=document.getElementById('coin3d'), topicsEl=document.getElementById('topics');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+
+const scene=new THREE.Scene();
+const cam=new THREE.OrthographicCamera(-1,1,1,-1,-5000,5000);
+cam.position.set(0,Math.sin(ELEV)*2000,Math.cos(ELEV)*2000); cam.lookAt(0,0,0);
+
+scene.add(new THREE.AmbientLight(0xffffff,.9));
+const sun=new THREE.DirectionalLight(0xffffff,1.6);
+sun.position.set(-500,1100,450); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-.0004; sun.shadow.radius=4;
+scene.add(sun);
+
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(20000,20000),new THREE.ShadowMaterial({opacity:.17}));
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+
+// three-step toon ramp
+const ramp=new THREE.DataTexture(new Uint8Array([110,110,110,255, 185,185,185,255, 255,255,255,255]),3,1);
+ramp.minFilter=ramp.magFilter=THREE.NearestFilter; ramp.needsUpdate=true;
+
+function canvasTex(w,h,draw){
+  const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;
+}
+function faceBase(g,S){
+  const R=S/2;
+  g.fillStyle=GOLD;g.beginPath();g.arc(R,R,R,0,7);g.fill();
+  g.strokeStyle=INK;g.lineWidth=S*.022;g.beginPath();g.arc(R,R,R-g.lineWidth/2,0,7);g.stroke();   // rim edge line
+  g.lineWidth=S*.008;g.beginPath();g.arc(R,R,R*.84,0,7);g.stroke();                              // inner ring
+}
+let logoImg=null;
+const blankTex=()=>canvasTex(1024,1024,(g,S)=>{
+  faceBase(g,S);
+  if(logoImg){const w=S*.34,h=w*logoImg.height/logoImg.width;g.globalAlpha=.85;g.drawImage(logoImg,(S-w)/2,(S-h)/2,w,h);g.globalAlpha=1}
+});
+const titleTex=lines=>canvasTex(1024,1024,(g,S)=>{
+  faceBase(g,S);
+  g.fillStyle=INK;g.textAlign='center';g.textBaseline='middle';g.direction='rtl';
+  let fs=S*(lines.length>1?.15:.19);
+  g.font=`500 ${fs}px Heebo`;
+  const maxW=S*.6, widest=Math.max(...lines.map(l=>g.measureText(l).width));
+  if(widest>maxW){fs*=maxW/widest;g.font=`500 ${fs}px Heebo`}
+  const lh=fs*1.12, y0=S/2-(lines.length-1)*lh/2;
+  lines.forEach((l,k)=>g.fillText(l,S/2,y0+k*lh));
+});
+const sideTex=canvasTex(2048,64,(g,w,h)=>{
+  g.fillStyle=GOLD_SIDE;g.fillRect(0,0,w,h);
+  g.fillStyle='rgba(0,0,0,.22)';for(let x=0;x<w;x+=14)g.fillRect(x,0,5,h);   // reeded edge
+  g.fillStyle=INK;g.fillRect(0,0,w,5);g.fillRect(0,h-5,w,5);
+});
+
+const toon=map=>new THREE.MeshToonMaterial({map,gradientMap:ramp});
+const matSide=toon(sideTex), matTop=toon(null), matBot=toon(null);
+const coin=new THREE.Mesh(new THREE.CylinderGeometry(1,1,THICK,96,1),[matSide,matTop,matBot]);
+coin.castShadow=true;
+const outline=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:INK,side:THREE.BackSide}));
+coin.add(outline);
+coin.visible=false; scene.add(coin);
+
+let W=0,H=0,R=1;
+function resize(){
+  W=slide.clientWidth;H=slide.clientHeight;R=W/12;           // diameter = 1/6 of the page width
+  renderer.setSize(W,H,false);
+  const top=H*CENTER_Y, bottom=H*(1-CENTER_Y);
+  // ortho frustum in screen pixels; vertical is divided by sin(elev) so the floor keeps its projected scale
+  cam.left=-W/2;cam.right=W/2;cam.top=top;cam.bottom=-bottom;cam.updateProjectionMatrix();
+  coin.scale.setScalar(R);
+  const o=OUTLINE_PX/R;
+  outline.geometry.dispose();outline.geometry=new THREE.CylinderGeometry(1+o,1+o,THICK+2*o,96,1);
+  const sc=sun.shadow.camera;sc.left=sc.bottom=-R*3;sc.right=sc.top=R*3;sc.near=1;sc.far=4000;sc.updateProjectionMatrix();
+  draw();
+}
+addEventListener('resize',resize);
+
+/* ---------- motion: a coin spun on a table ---------- */
+const T_SPIN=1.35, T_FALL=.8, T_SETTLE=.75, T_ALL=T_SPIN+T_FALL+T_SETTLE, D=Math.PI/180;
+const FACE_YAW=Math.PI/2; // yaw at rest that makes the face text read upright
+let track=[], alpha=0;
+function buildTrack(){
+  const dt=1/240, out=[];let psi=Math.random()*Math.PI*2, phi0=0, rateEnd=0;
+  const wob=7+Math.random()*3;
+  for(let t=0;t<=T_ALL+1e-9;t+=dt){
+    let phi,rate;
+    if(t<T_SPIN){phi=(85-2.5*t/T_SPIN+2.5*Math.sin(t*wob))*D;rate=15;phi0=phi}
+    else if(t<T_SPIN+T_FALL){const u=(t-T_SPIN)/T_FALL;phi=phi0*(1-Math.pow(u,1.9));rate=15+42*u*u;rateEnd=rate}
+    else{const s=t-T_SPIN-T_FALL;phi=7*D*Math.exp(-8*s)*Math.abs(Math.sin(19*s));rate=rateEnd*Math.exp(-9*s)}
+    psi+=rate*dt;out.push({phi,psi});
+  }
+  alpha=FACE_YAW+out.at(-1).psi;   // roll offset so the resting yaw is FACE_YAW
+  return out;
+}
+const qA=new THREE.Quaternion(),qB=new THREE.Quaternion(),qC=new THREE.Quaternion(),Y=new THREE.Vector3(0,1,0),Z=new THREE.Vector3(0,0,1);
+function pose(phi,psi){
+  qA.setFromAxisAngle(Y,-psi);qB.setFromAxisAngle(Z,-phi);qC.setFromAxisAngle(Y,alpha);
+  coin.quaternion.copy(qA).multiply(qB).multiply(qC);
+  coin.position.set(0,R*(Math.sin(phi)+THICK/2*Math.cos(phi)),0);
+}
+
+let anim=null, pick=null, blank=null, face=null;
+const faceCache={};   // title textures by topic key
+const faceFor=t=>faceCache[t.key]??=titleTex(t.lines);
+function draw(){renderer.render(scene,cam)}
+function toss(){
+  const list=topics();
+  pick=list[Math.floor(Math.random()*list.length)];
+  topicsEl.classList.remove('picked');[...topicsEl.children].forEach(s=>s.classList.remove('hit'));
+  blank??=blankTex(); face=faceFor(pick);
+  if(twoMode()){            // two territories: one on each side of the coin, visible while it spins
+    matTop.map=face; matBot.map=faceFor(list.find(t=>t!==pick));
+  }else{ matTop.map=blank; matBot.map=blank }
+  matTop.needsUpdate=matBot.needsUpdate=true;
+  track=buildTrack(); coin.visible=true;
+  const t0=performance.now(), wasShown=anim!==null||coin.userData.shown; coin.userData.shown=true;
+  cancelAnimationFrame(anim?.raf);
+  anim={raf:0};
+  const step=now=>{
+    const t=Math.max(0,(now-t0)/1000), k=Math.min(track.length-1,Math.floor(t*240)), p=track[k];
+    if(matTop.map!==face && t>T_SPIN && p.phi<45*D){matTop.map=face;matTop.needsUpdate=true}
+    pose(p.phi,p.psi);
+    const pop=wasShown?1:Math.min(1,t/.28), e=1+2.2*Math.pow(pop-1,3)+1.2*Math.pow(pop-1,2);   // ease-out-back
+    coin.scale.setScalar(R*e);
+    draw();
+    if(k<track.length-1) anim.raf=requestAnimationFrame(step);
+    else{
+      topicsEl.classList.add('picked');topicsEl.querySelector(`[data-terr="${pick.key}"]`).classList.add('hit');
+      anim=null;
+    }
+  };
+  anim.raf=requestAnimationFrame(step);
+}
+function resetCoin(){
+  cancelAnimationFrame(anim?.raf);anim=null;coin.visible=false;coin.userData.shown=false;
+  topicsEl.classList.remove('picked');[...topicsEl.children].forEach(s=>s.classList.remove('hit'));
+  resize();
+}
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+canvas.addEventListener('click',e=>{
+  if(!coin.userData.shown){toss();return}
+  const r=canvas.getBoundingClientRect();
+  ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(ndc,cam);
+  if(ray.intersectObject(coin,false).length) toss();
+});
+canvas.addEventListener('mousemove',e=>{
+  if(!coin.userData.shown){canvas.style.cursor='pointer';return}
+  const r=canvas.getBoundingClientRect();
+  ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(ndc,cam);
+  canvas.style.cursor=ray.intersectObject(coin,false).length?'pointer':'default';
+});
+
+/* ---------- voice: saying "עוד פעם" tosses the coin (this slide only) ---------- */
+// Uses the browser's speech recognition (Chrome/Safari). In Chrome the audio is processed online, so this part needs internet.
+// Chrome ends a recognition session after a result, a silence or a network hiccup, so we keep starting a fresh one
+// for as long as this slide is showing, plus a watchdog in case an end event never arrives.
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const AGAIN=/(עוד|עד|אוד)\s*-?\s*פעם/;
+const mic=document.getElementById('mic');
+let rec=null, wantMic=false, running=false, restartT=0, watchdog=0, deniedCount=0;
+const vlog=(...a)=>console.log('[voice]',...a);
+function micState(s){mic.className=s;mic.title={on:'מאזין ל״עוד פעם״',off:'',err:'אין גישה למיקרופון'}[s]||''}
+function scheduleRestart(ms){ clearTimeout(restartT); if(wantMic) restartT=setTimeout(beginSession,ms) }
+function beginSession(){
+  if(!SR||!wantMic||running) return;
+  const r=new SR(); rec=r;
+  // One short session per phrase: Chrome's long "continuous" sessions tend to go deaf after the first result,
+  // so each session hears one utterance, ends, and a fresh one starts right away.
+  r.lang='he-IL'; r.continuous=false; r.interimResults=true; r.maxAlternatives=3;
+  let fired=false, stall=0;
+  const kick=()=>{ clearTimeout(stall); stall=setTimeout(()=>{ vlog('stalled, restarting'); try{r.abort()}catch{} },8000) };
+  r.onstart=()=>{ running=true; deniedCount=0; micState('on'); kick() };
+  r.onresult=e=>{
+    kick();
+    if(fired) return;
+    for(let k=e.resultIndex;k<e.results.length;k++){
+      const alts=[...e.results[k]].map(a=>a.transcript);
+      if(alts.some(t=>AGAIN.test(t))){
+        fired=true; vlog('heard',alts[0]); if(!anim) toss();
+        try{r.abort()}catch{}           // end now so the next phrase gets a clean session
+        return;
+      }
+    }
+  };
+  r.onerror=e=>{
+    if(e.error!=='no-speech'&&e.error!=='aborted') vlog('error',e.error);
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){ deniedCount++; if(deniedCount>=3){wantMic=false;micState('err')} }
+  };
+  r.onend=()=>{
+    clearTimeout(stall); running=false; if(rec===r) rec=null;
+    if(wantMic) scheduleRestart(deniedCount?1500:100); else if(mic.className!=='err') micState('off');
+  };
+  try{ r.start() }catch(err){ vlog('start failed',err.message); running=false; scheduleRestart(600) }
+}
+function startListen(){
+  if(!SR||wantMic) return;
+  wantMic=true; deniedCount=0; beginSession();
+  clearInterval(watchdog); watchdog=setInterval(()=>{ if(wantMic&&!running) beginSession() },3000);
+}
+function stopListen(){
+  wantMic=false; clearTimeout(restartT); clearInterval(watchdog);
+  try{rec?.abort()}catch{} rec=null; running=false;
+  if(mic.className!=='err') micState('off');
+}
+window.__voice=t=>{ if(AGAIN.test(t)&&!anim) toss() };   // debug: simulate a phrase
+
+const coinIdx=slides.indexOf(slide);
+hooks[coinIdx]={
+  leave:stopListen,
+  enter(){resetCoin();startListen()},
+  next(){
+    if(!coin.userData.shown){toss();return true}
+    if(pick&&!anim){show(slides.findIndex(s=>s.dataset.terr===pick.key));return true}   // after it lands: into the picked territory
+    return true;
+  },
+};
+
+// board-like pages (layers, jam): a fixed design canvas scaled to fit under the title; images zoom to the full page,
+// films open larger and play. box = the used part of the design canvas.
+const pages={};   // territory key → {stage, box}, used by the closing slide's thumbnails
+function boardPage(slideEl, box, onEnter){
+  const stage=slideEl.querySelector('.lstage'), zoom=slideEl.querySelector('.lzoom');
+  pages[slideEl.dataset.terr]={stage,box};
+  const fit=()=>{
+    const W=slideEl.clientWidth, H=slideEl.clientHeight, top=H*.13, availH=H-top-H*.03;
+    const s=Math.min(W*.94/box.w, availH/box.h);
+    const ox=(W-box.w*s)/2-box.x*s, oy=top+(availH-box.h*s)/2-box.y*s;
+    stage.style.transform=`translate(${ox}px,${oy}px) scale(${s})`;
+  };
+  addEventListener('resize',fit);
+  const isOpen=()=>zoom.classList.contains('on');
+  const close=()=>{ zoom.classList.remove('on'); setTimeout(()=>{ if(!isOpen()) zoom.innerHTML='' },360) };   // also stops a film
+  const open=(kind,html)=>{ zoom.className='lzoom '+kind; zoom.innerHTML=html; void zoom.offsetWidth; zoom.classList.add('on') };
+  stage.querySelectorAll('.zoomable').forEach(img=>img.addEventListener('click',e=>{
+    e.preventDefault(); e.stopPropagation(); open('img',`<img src="${img.dataset.full||img.getAttribute('src')}" alt="">`);
+  }));
+  zoom.addEventListener('click',e=>{ if(!e.target.closest('.frame')) close() });
+  hooks[slides.indexOf(slideEl)]={
+    enter(){ fit(); onEnter?.() },
+    leave(){ zoom.classList.remove('on'); zoom.innerHTML='' },
+    next(){ if(isOpen()){close();return true} return false },   // space first closes a zoomed item
+  };
+  return {open};
+}
+
+// layers
+const layersPage=boardPage(document.getElementById('layersSlide'),{x:40,y:44,w:1290,h:718});
+const vcard=document.getElementById('vcard');
+const playFilm=()=>layersPage.open('vid','<div class="frame"><iframe src="https://www.youtube-nocookie.com/embed/CkM0JYywjds?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen title="Sound Print"></iframe></div>');
+vcard.addEventListener('click',playFilm);
+vcard.addEventListener('keydown',e=>{if(e.key==='Enter'){e.stopPropagation();playFilm()}});
+
+// nonverbal
+boardPage(document.getElementById('nvSlide'),{x:90,y:270,w:1660,h:660});
+
+// jam: the doodle film restarts each visit
+const doodle=document.getElementById('doodleVid');
+boardPage(document.getElementById('jamSlide'),{x:60,y:76,w:1200,h:996},()=>{ try{doodle.currentTime=0;doodle.play()}catch{} });
+
+// closing slide: reached from the hub's invisible end-zone; each column shows a scaled live copy of its page
+const endSlide=document.getElementById('endSlide');
+document.getElementById('endZone').addEventListener('click',e=>{ e.stopPropagation(); show(slides.indexOf(endSlide)) });
+function buildThumbs(){
+  endSlide.querySelectorAll('.endcol').forEach(col=>{
+    const page=pages[col.dataset.terr], th=col.querySelector('.thumb'); if(!page) return;
+    if(!th.firstChild){
+      const c=page.stage.cloneNode(true);
+      c.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+      c.querySelectorAll('video').forEach(v=>{v.muted=true;v.play?.().catch(()=>{})});
+      th.append(c);
+    }
+    const c=th.firstChild, b=page.box, W=th.clientWidth, H=th.clientHeight, pad=.07;
+    const s=Math.min(W*(1-2*pad)/b.w, H*(1-2*pad)/b.h);
+    c.style.transform=`translate(${(W-b.w*s)/2-b.x*s}px,${(H-b.h*s)/2-b.y*s}px) scale(${s})`;
+  });
+}
+endSlide.querySelectorAll('.endcol').forEach(col=>col.addEventListener('click',()=>show(slides.findIndex(s=>s.dataset.terr===col.dataset.terr))));
+addEventListener('resize',()=>{ if(slides[i]===endSlide) buildThumbs() });
+hooks[slides.indexOf(endSlide)]={ enter:buildThumbs, next:()=>true };
+
+// titles under the coin jump to their territory slide (all of them, picked or not)
+topicsEl.addEventListener('click',e=>{
+  const key=e.target.closest('[data-terr]')?.dataset.terr; if(!key) return;
+  show(slides.findIndex(s=>s.dataset.terr===key));
+});
+// hidden corner button: three ↔ two territories
+document.getElementById('modeToggle').addEventListener('click',()=>{
+  document.body.classList.toggle('two');
+  resetCoin(); show(i);
+});
+
+// load the logo for the coin's blank faces, and wait for Heebo before drawing text onto the coin
+const li=new Image();li.onload=()=>{logoImg=li;blank=null};li.src='img/sulamstar.svg';
+document.fonts.load('500 100px Heebo').finally(()=>{});
+
+window.__coin={toss,pose,draw,coin,set alphaVal(v){alpha=v}};   // debug handle
+show((parseInt(location.hash.slice(1))||1)-1);
+</script>
+</body>
+</html>
